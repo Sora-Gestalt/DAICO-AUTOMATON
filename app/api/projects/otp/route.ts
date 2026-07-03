@@ -7,7 +7,7 @@ export async function POST(request: Request) {
         const db = await getDatabaseConnection();
 
         // 1. Verify the project actually exists first
-        const project = await db.get('SELECT id FROM projects WHERE leader_email = ?', [leader_email]);
+        const project = await db.execute('SELECT id FROM projects WHERE leader_email = ?', [leader_email]);
         if (!project) {
             return NextResponse.json({ error: 'No project found linked to this email address.' }, { status: 404 });
         }
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
         const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
         // 4. Clear any existing pending codes for this user, then insert the new token
-        await db.run('DELETE FROM deletion_otps WHERE leader_email = ?', [leader_email]);
-        await db.run(
+        await db.execute('DELETE FROM deletion_otps WHERE leader_email = ?', [leader_email]);
+        await db.execute(
             'INSERT INTO deletion_otps (leader_email, otp_code, expires_at) VALUES (?, ?, ?)',
             [leader_email, otpCode, expiresAt]
         );

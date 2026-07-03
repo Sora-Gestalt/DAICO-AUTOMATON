@@ -1,22 +1,21 @@
-import sqlite3 from "sqlite3";
-import {open,Database} from "sqlite";
-import path from "path";
+import { createClient, Client } from "@libsql/client";
 
+let clientInstance: Client | null = null;
 
-const DB_PATH = path.join(process.cwd(),'automaton.db');
+export async function getDatabaseConnection() {
+    if (clientInstance) return clientInstance;
 
-let dbInstance:Database | null = null;
+    // Connects to local file system during dev, switches to Turso cloud automatically on Vercel
+    const url = process.env.DATABASE_URL || "file:automaton.db";
+    const authToken = process.env.DATABASE_AUTH_TOKEN || "";
 
-export async function getDatabaseConnection(){
-    if (dbInstance) return dbInstance;
-
-    dbInstance = await open({
-        filename: DB_PATH,
-        driver: sqlite3.Database,
+    clientInstance = createClient({
+        url: url,
+        authToken: authToken,
     });
 
-
-    await dbInstance.exec(`
+    // Provision the schema matching your local tables
+    await clientInstance.execute(`
         CREATE TABLE IF NOT EXISTS projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -27,21 +26,22 @@ export async function getDatabaseConnection(){
             leader_email TEXT NOT NULL UNIQUE,
             leader_phone TEXT NOT NULL,
             contact_misc TEXT,
-            status TEXT DEFAULT 'Recruiting', -- New status tracking column
+            status TEXT DEFAULT 'Recruiting',
+            security_strikes INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
     
-    await dbInstance.exec(`
+    await clientInstance.execute(`
         CREATE TABLE IF NOT EXISTS deletion_otps (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             leader_email TEXT NOT NULL,
             otp_code TEXT NOT NULL,
             expires_at TIMESTAMP NOT NULL,
-            attempts INTEGER DEFAULT 0 -- Tracks failed inputs
+            attempts INTEGER DEFAULT 0
         );
     `);
-    console.log("LOCAL SQLITE CONNECTION ESTABLISHED, GLORY TO MANKIND");
-    return dbInstance;
-    
+
+    console.log("⚡ SERVERLESS LIBSQL CONNECTOR ACTIVE");
+    return clientInstance;
 }
