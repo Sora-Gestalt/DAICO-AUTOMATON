@@ -11,8 +11,10 @@
   "dependencies": {
     "@libsql/client": "^0.17.4",
     "next": "^16.2.10",
+    "nodemailer": "^9.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "resend": "^6.17.1",
     "sqlite": "^5.1.1"
   },
   "devDependencies": {
