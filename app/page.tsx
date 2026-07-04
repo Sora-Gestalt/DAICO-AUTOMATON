@@ -309,7 +309,8 @@ export default function Home() {
                 <span className="bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">Advisor: {descModalProject.advisor}</span>
               </p>
             </div>
-            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
+            {/* Added break-words and overflow-hidden to ensure text wraps correctly and respects bounds */}
+            <div className="w-full text-gray-700 whitespace-pre-wrap break-words overflow-hidden leading-relaxed text-sm">
               {descModalProject.description}
             </div>
             <div className="mt-8 pt-5 border-t border-gray-100 flex justify-end">
@@ -513,7 +514,7 @@ export default function Home() {
                         </div>
                       </div>
                       
-                      <p className="text-gray-600 text-[13px] mb-4 leading-relaxed">
+                      <p className="text-gray-600 text-[13px] mb-4 leading-relaxed break-words">
                         {truncatedDesc}
                         {project.description.length > 50 && (
                           <button 
