@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import Image from "next/image";
+import ksuLogo from "../public/ksu_masterlogo_colour_rgb.png";
 
 interface Project {
   id: number;
@@ -65,12 +66,21 @@ export default function Home() {
     setSuccess(false);
     setIsSubmitting(true);
 
-    const ksuEmailRegex = /^[a-zA-Z0-9._%+-]+@student\.ksu\.edu\.sa$/;
+    const ksuEmailRegex = /^4\d{8}@student\.ksu\.edu\.sa$/;
     if (!ksuEmailRegex.test(formData.leader_email.trim())) {
       setError('Only official KSU student emails (@student.ksu.edu.sa) are permitted.');
       setIsSubmitting(false);
       return;
     }
+
+
+    const ksaPhoneRegex = /^05\d{8}$/;
+    if (!ksaPhoneRegex.test(formData.leader_phone.trim())) {
+      setError('Please provide a valid Saudi mobile number starting with 05 (e.g., 05xxxxxxxx).');
+      setIsSubmitting(false);
+      return;
+    }
+
 
     try {
       const response = await fetch('/api/projects', {
@@ -148,7 +158,6 @@ export default function Home() {
     if (!confirm(`Initialize deletion sequence for "${project.title}"?`)) return;
 
     try {
-      // Step 1: Initialize the transaction by requesting the OTP
       const res = await fetch('/api/projects/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,10 +167,9 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'OTP generation failed');
 
-      // Step 2: Define a re-entrant validation loop handler
       const executeVerificationSequence = async (messagePrompt: string) => {
         const userOtp = prompt(messagePrompt);
-        if (!userOtp) return; // User opted out or clicked cancel
+        if (!userOtp) return;
 
         const deleteRes = await fetch('/api/projects/delete-verify', {
           method: 'POST',
@@ -175,21 +183,17 @@ export default function Home() {
         const deleteData = await deleteRes.json();
 
         if (!deleteRes.ok) {
-          // If they entered the wrong PIN but aren't fully locked out yet (401 status)
           if (deleteRes.status === 401) {
-            // Re-call the function recursively with the backend's new warning message!
             await executeVerificationSequence(`⚠️ Entry Denied.\n\n${deleteData.error}\n\nEnter the correct 6-digit pin:`);
           } else {
-            // If it's a 429 Lockdown or 500 error, break the cycle and throw
             throw new Error(deleteData.error || 'Verification clearance rejected');
           }
         } else {
           alert('✅ Verification verified. Record permanently removed from database.');
-          fetchProjects(); // Instantly wipe it from the dashboard view state
+          fetchProjects();
         }
       };
 
-      // Initial execution kick-off
       await executeVerificationSequence(
         `🔒 Security Code requested for: ${project.leader_email}\n\nCheck your system server console window to copy your 6-digit pin:`
       );
@@ -199,7 +203,6 @@ export default function Home() {
     }
   };
 
-  // 1. Initial filter setup
   const filteredProjects = projects.filter(project => {
     const matchesSearch = 
       project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -213,7 +216,6 @@ export default function Home() {
     return matchesSearch && matchesMajorFilter;
   });
 
-  // 🛠️ FEATURE INTEGRATION: Intelligent multi-keyword intersection rank routing
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     if (!searchTerm.trim()) return 0;
 
@@ -230,7 +232,8 @@ export default function Home() {
       <header className={`${ksuBlue} p-5 shadow-sm`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-             <Image src="/ksu_logo.webp" alt="KSU Logo" width={46} height={46} className='bg-white p-1 rounded-full shadow-sm' />
+             {/* 🔄 CHANGED: Replaced hardcoded string with imported ksuLogo object */}
+             <Image src={ksuLogo} alt="KSU Logo" width={100} height={100} className='bg-white p-1 rounded-full shadow-sm object-contain' />
              <h1 className="text-xl font-bold text-white tracking-tight">CCIS Graduation Project Marketplace</h1>
           </div>
           <span className="text-white/90 text-sm font-medium tracking-wide bg-white/10 px-3 py-1 rounded-full">KSU Internal Portal</span>
@@ -327,7 +330,6 @@ export default function Home() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* 🔄 CHANGED: Iterating over sortedProjects instead of filteredProjects */}
                 {sortedProjects.map(project => (
                   <div key={project.id} className="relative border border-gray-100 bg-white p-5 rounded-xl hover:border-gray-200 shadow-sm transition-all hover:shadow-md group">
                     
