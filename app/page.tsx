@@ -1,5 +1,5 @@
 'use client';
-// comment
+
 import { useState, useEffect, FormEvent } from 'react';
 import Image from "next/image";
 import ksuLogo from "../public/ksu_masterlogo_colour_rgb.png";
@@ -33,6 +33,7 @@ export default function Home() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMajorFilter, setSelectedMajorFilter] = useState<string | null>(null);
+  const [expandedDesc, setExpandedDesc] = useState<Record<number, boolean>>({});
 
   const ksuBlue = "bg-[#005691]";
   const ksuHoverBlue = "hover:bg-[#004471]";
@@ -65,6 +66,21 @@ export default function Home() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleMajorToggle = (majorId: string) => {
+    const currentMajors = formData.majors_needed ? formData.majors_needed.split(', ') : [];
+    let newMajors;
+    if (currentMajors.includes(majorId)) {
+      newMajors = currentMajors.filter(m => m !== majorId);
+    } else {
+      newMajors = [...currentMajors, majorId];
+    }
+    setFormData({ ...formData, majors_needed: newMajors.join(', ') });
+  };
+
+  const toggleDesc = (id: number) => {
+    setExpandedDesc(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -78,9 +94,28 @@ export default function Home() {
       return;
     }
 
-    const ksuEmailRegex = /^4\d{8}@student\.ksu\.edu\.sa$/;
-    if (!ksuEmailRegex.test(formData.leader_email.trim())) {
-      setError('Only official KSU student emails (@student.ksu.edu.sa) are permitted.');
+    const emailStr = formData.leader_email.trim();
+    if (!emailStr.includes('@')) {
+      setError('Invalid email address format.');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    const [localPart, domain] = emailStr.split('@');
+    if (domain !== 'student.ksu.edu.sa') {
+      setError('Email must end with @student.ksu.edu.sa');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    if (!localPart.startsWith('4')) {
+      setError('Student ID in email must start with 4.');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    if (localPart.length !== 9 || !/^\d+$/.test(localPart)) {
+      setError('Student ID in email must be exactly 9 digits.');
       setIsSubmitting(false);
       return;
     }
@@ -88,6 +123,12 @@ export default function Home() {
     const ksaPhoneRegex = /^05\d{8}$/;
     if (!ksaPhoneRegex.test(formData.leader_phone.trim())) {
       setError('Please provide a valid Saudi mobile number starting with 05 (e.g., 05xxxxxxxx).');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!formData.majors_needed) {
+      setError('Please select at least one target major.');
       setIsSubmitting(false);
       return;
     }
@@ -282,8 +323,8 @@ export default function Home() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">Concise Abstract (Max 300 chars)</label>
-                <textarea name="description" value={formData.description} onChange={handleInputChange} required rows={2} maxLength={300} className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005691] transition-all resize-none" />
+                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">Concise Abstract (Max 500 chars)</label>
+                <textarea name="description" value={formData.description} onChange={handleInputChange} required rows={3} maxLength={500} className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005691] transition-all resize-none" />
               </div>
 
               <div>
@@ -303,15 +344,19 @@ export default function Home() {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">Target Majors</label>
-                <select name="majors_needed" value={formData.majors_needed} onChange={handleInputChange} required className="w-full p-2.5 bg-gray-50/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#005691] transition-all">
-                  <option value="" disabled>Select Target Major(s)</option>
-                  <option value="CS">Computer Science (CS)</option>
-                  <option value="IS">Information Systems (IS)</option>
-                  <option value="SWE">Software Engineering (SWE)</option>
-                  <option value="CEN">Computer Engineering (CEN)</option>
-                  <option value="CS, SWE">CS & SWE</option>
-                  <option value="CS, IS, SWE, CEN">All CCIS Majors</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {majorFilters.map(major => (
+                    <label key={major.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1.5 rounded-md transition-colors">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.majors_needed.includes(major.id)} 
+                        onChange={() => handleMajorToggle(major.id)} 
+                        className="w-4 h-4 text-[#005691] focus:ring-[#005691] border-gray-300 rounded"
+                      />
+                      <span className="text-gray-700 font-medium text-xs">{major.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -403,62 +448,72 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {sortedProjects.map(project => (
-                <div key={project.id} className="relative border border-gray-200 bg-white p-5 rounded-xl hover:border-[#005691]/40 shadow-sm transition-all hover:shadow-md group flex flex-col h-full">
-                  
-                  {/* Hover Buttons */}
-                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5 bg-white/90 backdrop-blur p-1 rounded-lg shadow-sm border border-gray-100 z-10">
-                    <button onClick={() => handleToggleStatus(project)} className="text-slate-600 bg-slate-50 p-1.5 px-2.5 rounded-md hover:bg-slate-100 text-[10px] font-semibold border border-slate-200" title="Toggle Status">
-                      🔄
-                    </button>
-                    <button onClick={() => handleDelete(project)} className="bg-red-50 text-red-600 p-1.5 px-2.5 rounded-md hover:bg-red-100 text-[10px] font-semibold" title="Withdraw Project">
-                      ❌
-                    </button>
-                  </div>
+              {sortedProjects.map(project => {
+                const isExpanded = expandedDesc[project.id];
+                const truncatedDesc = project.description.length > 50 ? project.description.substring(0, 50) + '...' : project.description;
 
-                  {/* Main Info */}
-                  <div className="flex-1 flex flex-col">
-                    <div className="flex flex-col gap-2 mb-3 pr-14">
-                      <h3 className="text-base font-bold text-gray-900 tracking-tight leading-snug line-clamp-2">{project.title}</h3>
+                return (
+                  <div key={project.id} className="relative border border-gray-200 bg-white p-5 rounded-xl hover:border-[#005691]/40 shadow-sm transition-all hover:shadow-md group flex flex-col h-full">
+                    
+                    {/* Hover Buttons */}
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5 bg-white/90 backdrop-blur p-1 rounded-lg shadow-sm border border-gray-100 z-10">
+                      <button onClick={() => handleToggleStatus(project)} className="text-slate-600 bg-slate-50 p-1.5 px-2.5 rounded-md hover:bg-slate-100 text-[10px] font-semibold border border-slate-200" title="Toggle Status">
+                        🔄
+                      </button>
+                      <button onClick={() => handleDelete(project)} className="bg-red-50 text-red-600 p-1.5 px-2.5 rounded-md hover:bg-red-100 text-[10px] font-semibold" title="Withdraw Project">
+                        ❌
+                      </button>
+                    </div>
+
+                    {/* Main Info */}
+                    <div className="flex-1 flex flex-col" onClick={() => toggleDesc(project.id)}>
+                      <div className="flex flex-col gap-2 mb-3 pr-14 cursor-pointer">
+                        <h3 className="text-base font-bold text-gray-900 tracking-tight leading-snug line-clamp-2">{project.title}</h3>
+                        
+                        <div className="flex items-center gap-3 shrink-0">
+                          {project.status === 'Recruiting' ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              </span>
+                              <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-100">Recruiting</span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">🔒 Full Team</span>
+                          )}
+                          <span className="text-[11px] text-gray-400 font-mono">{new Date(project.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
                       
-                      <div className="flex items-center gap-3 shrink-0">
-                        {project.status === 'Recruiting' ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                            <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-100">Recruiting</span>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">🔒 Full Team</span>
+                      <p className="text-gray-600 text-[13px] mb-4 leading-relaxed cursor-pointer hover:text-gray-800 transition-colors">
+                        {isExpanded ? project.description : truncatedDesc}
+                        {!isExpanded && project.description.length > 50 && (
+                          <span className="text-[#005691] ml-1 font-semibold text-[11px]">View More</span>
                         )}
-                        <span className="text-[11px] text-gray-400 font-mono">{new Date(project.created_at).toLocaleDateString()}</span>
+                      </p>
+                      <p className="text-xs text-gray-500 mb-4"><span className="font-semibold text-gray-700">Advisor:</span> {project.advisor}</p>
+                      
+                      <div className="flex flex-wrap gap-1.5 mb-5 mt-auto">
+                        {project.skills_needed && project.skills_needed.split(',').map(skill => (
+                          <span key={skill} className="bg-slate-50 text-slate-600 text-[10px] px-2 py-1 rounded-md font-medium border border-slate-200">{skill.trim()}</span>
+                        ))}
+                        {project.majors_needed && project.majors_needed.split(',').map(major => (
+                          <span key={major} className="bg-[#005691]/5 text-[#005691] text-[10px] px-2 py-1 rounded-md font-medium border border-[#005691]/20">{major.trim()}</span>
+                        ))}
                       </div>
                     </div>
-                    
-                    <p className="text-gray-600 text-[13px] mb-4 leading-relaxed line-clamp-3">{project.description}</p>
-                    <p className="text-xs text-gray-500 mb-4"><span className="font-semibold text-gray-700">Advisor:</span> {project.advisor}</p>
-                    
-                    <div className="flex flex-wrap gap-1.5 mb-5 mt-auto">
-                      {project.skills_needed && project.skills_needed.split(',').map(skill => (
-                        <span key={skill} className="bg-slate-50 text-slate-600 text-[10px] px-2 py-1 rounded-md font-medium border border-slate-200">{skill.trim()}</span>
-                      ))}
-                      {project.majors_needed && project.majors_needed.split(',').map(major => (
-                        <span key={major} className="bg-[#005691]/5 text-[#005691] text-[10px] px-2 py-1 rounded-md font-medium border border-[#005691]/20">{major.trim()}</span>
-                      ))}
+
+                    {/* Contact Section Fixed at Bottom */}
+                    <div className="border-t border-gray-100 pt-3 mt-auto flex flex-col gap-1.5 text-[11px] text-gray-600 bg-gray-50/50 p-3 rounded-lg border border-gray-100/50">
+                      <p className="flex items-center gap-2"><span className="text-gray-400">📧</span> <span className="truncate">{project.leader_email}</span></p>
+                      <p className="flex items-center gap-2"><span className="text-gray-400">📞</span> {project.leader_phone}</p>
+                      {project.contact_misc && <p className="flex items-center gap-2"><span className="text-gray-400">💬</span> <span className="truncate">{project.contact_misc}</span></p>}
                     </div>
-                  </div>
 
-                  {/* Contact Section Fixed at Bottom */}
-                  <div className="border-t border-gray-100 pt-3 mt-auto flex flex-col gap-1.5 text-[11px] text-gray-600 bg-gray-50/50 p-3 rounded-lg border border-gray-100/50">
-                    <p className="flex items-center gap-2"><span className="text-gray-400">📧</span> <span className="truncate">{project.leader_email}</span></p>
-                    <p className="flex items-center gap-2"><span className="text-gray-400">📞</span> {project.leader_phone}</p>
-                    {project.contact_misc && <p className="flex items-center gap-2"><span className="text-gray-400">💬</span> <span className="truncate">{project.contact_misc}</span></p>}
                   </div>
-
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
