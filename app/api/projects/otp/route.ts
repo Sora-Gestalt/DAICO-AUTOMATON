@@ -29,23 +29,24 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No project found linked to this email address.' }, { status: 404 });
         }
 
-        // 4. RATE LIMITING: Check if an OTP was generated in the last 60 seconds
+        // 4. RATE LIMITING: Check if an OTP was generated in the last 60 seconds using expires_at
         const recentOtpResult = await db.execute(
-            'SELECT created_at FROM deletion_otps WHERE leader_email = ? ORDER BY created_at DESC LIMIT 1', 
+            'SELECT expires_at FROM deletion_otps WHERE leader_email = ? LIMIT 1', 
             [leader_email]
         );
         const recentOtp = recentOtpResult.rows[0]; 
 
         if (recentOtp) {
-            // Turso timestamps might return as strings or numbers depending on your schema setup
-            const lastCreationTime = new Date(recentOtp.created_at as string | number).getTime();
-            const timeElapsed = Date.now() - lastCreationTime;
+            // Calculate creation time since we know expires_at is exactly 15 minutes ahead
+            const expiresTime = new Date(recentOtp.expires_at as string | number).getTime();
+            const creationTime = expiresTime - (15 * 60 * 1000);
+            const timeElapsed = Date.now() - creationTime;
             
             if (timeElapsed < 60 * 1000) { // 60 seconds cooldown window
                 const secondsLeft = Math.ceil((60 * 1000 - timeElapsed) / 1000);
                 return NextResponse.json(
                     { error: `Please wait ${secondsLeft} seconds before requesting another code.` }, 
-                    { status: 429 } // Too Many Requests
+                    { status: 429 } 
                 );
             }
         }
