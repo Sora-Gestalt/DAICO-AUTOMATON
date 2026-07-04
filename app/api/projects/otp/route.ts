@@ -3,9 +3,6 @@ import { getDatabaseConnection } from '@/lib/db';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
-// Initialize Resend with your Vercel Environment Variable
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: Request) {
     try {
         const { leader_email } = await request.json();
@@ -15,9 +12,16 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'A valid email address is required.' }, { status: 400 });
         }
 
+        // 2. Initialize Resend inside the request execution flow to prevent Vercel build failures
+        if (!process.env.RESEND_API_KEY) {
+            console.error("CRITICAL: RESEND_API_KEY environment variable is not defined.");
+            return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
+        }
+        const resend = new Resend(process.env.RESEND_API_KEY);
+
         const db = await getDatabaseConnection();
 
-        // 2. Verify the project exists using Turso rows array
+        // 3. Verify the project exists using Turso rows array
         const projectResult = await db.execute('SELECT id FROM projects WHERE leader_email = ? LIMIT 1', [leader_email]);
         const project = projectResult.rows[0]; 
         
@@ -25,7 +29,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No project found linked to this email address.' }, { status: 404 });
         }
 
-        // 3. RATE LIMITING: Check if an OTP was generated in the last 60 seconds
+        // 4. RATE LIMITING: Check if an OTP was generated in the last 60 seconds
         const recentOtpResult = await db.execute(
             'SELECT created_at FROM deletion_otps WHERE leader_email = ? ORDER BY created_at DESC LIMIT 1', 
             [leader_email]
@@ -46,20 +50,20 @@ export async function POST(request: Request) {
             }
         }
 
-        // 4. SECURITY: Generate a cryptographically strong 6-digit code
+        // 5. SECURITY: Generate a cryptographically strong 6-digit code
         const otpCode = crypto.randomInt(100000, 1000000).toString();
         
-        // 5. Define expiration bounds (15 minutes from now)
+        // 6. Define expiration bounds (15 minutes from now)
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-        // 6. Clear existing pending codes for this user, then insert the new token
+        // 7. Clear existing pending codes for this user, then insert the new token
         await db.execute('DELETE FROM deletion_otps WHERE leader_email = ?', [leader_email]);
         await db.execute(
             'INSERT INTO deletion_otps (leader_email, otp_code, expires_at) VALUES (?, ?, ?)',
             [leader_email, otpCode, expiresAt]
         );
 
-        // 7. Dispatch Email via Resend using your verified domain
+        // 8. Dispatch Email via Resend using your verified domain
         await resend.emails.send({
             from: 'Security <noreply@automaton.buzz>',
             to: [leader_email],
