@@ -20,6 +20,8 @@ interface Project {
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [descModalProject, setDescModalProject] = useState<Project | null>(null);
+  
   const [formData, setFormData] = useState({
     title: '', description: '', skills_needed: '', majors_needed: '',
     advisor: '', leader_email: '', leader_phone: '', contact_misc: '',
@@ -33,7 +35,6 @@ export default function Home() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMajorFilter, setSelectedMajorFilter] = useState<string | null>(null);
-  const [expandedDesc, setExpandedDesc] = useState<Record<number, boolean>>({});
 
   const ksuBlue = "bg-[#005691]";
   const ksuHoverBlue = "hover:bg-[#004471]";
@@ -75,10 +76,6 @@ export default function Home() {
       newMajors = [...currentMajors, majorId];
     }
     setFormData({ ...formData, majors_needed: newMajors.join(', ') });
-  };
-
-  const toggleDesc = (id: number) => {
-    setExpandedDesc(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -296,6 +293,37 @@ export default function Home() {
         </div>
       </header>
 
+      {/* FULL DESCRIPTION MODAL */}
+      {descModalProject && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl relative my-8 animate-in fade-in zoom-in duration-200">
+            <button 
+              onClick={() => setDescModalProject(null)} 
+              className="absolute top-6 right-6 h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800 transition-colors"
+            >
+              ✕
+            </button>
+            <div className="mb-6 border-b border-gray-100 pb-4 pr-8">
+              <h2 className="text-2xl font-bold text-gray-900 tracking-tight leading-snug">{descModalProject.title}</h2>
+              <p className="text-sm font-semibold text-gray-500 mt-2 flex items-center gap-2">
+                <span className="bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">Advisor: {descModalProject.advisor}</span>
+              </p>
+            </div>
+            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed text-sm">
+              {descModalProject.description}
+            </div>
+            <div className="mt-8 pt-5 border-t border-gray-100 flex justify-end">
+              <button 
+                onClick={() => setDescModalProject(null)} 
+                className={`${ksuBlue} text-white font-bold py-2.5 px-8 rounded-lg ${ksuHoverBlue} transition-colors shadow-sm`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* REGISTRATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -449,7 +477,6 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {sortedProjects.map(project => {
-                const isExpanded = expandedDesc[project.id];
                 const truncatedDesc = project.description.length > 50 ? project.description.substring(0, 50) + '...' : project.description;
 
                 return (
@@ -466,8 +493,8 @@ export default function Home() {
                     </div>
 
                     {/* Main Info */}
-                    <div className="flex-1 flex flex-col" onClick={() => toggleDesc(project.id)}>
-                      <div className="flex flex-col gap-2 mb-3 pr-14 cursor-pointer">
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex flex-col gap-2 mb-3 pr-14">
                         <h3 className="text-base font-bold text-gray-900 tracking-tight leading-snug line-clamp-2">{project.title}</h3>
                         
                         <div className="flex items-center gap-3 shrink-0">
@@ -486,10 +513,15 @@ export default function Home() {
                         </div>
                       </div>
                       
-                      <p className="text-gray-600 text-[13px] mb-4 leading-relaxed cursor-pointer hover:text-gray-800 transition-colors">
-                        {isExpanded ? project.description : truncatedDesc}
-                        {!isExpanded && project.description.length > 50 && (
-                          <span className="text-[#005691] ml-1 font-semibold text-[11px]">View More</span>
+                      <p className="text-gray-600 text-[13px] mb-4 leading-relaxed">
+                        {truncatedDesc}
+                        {project.description.length > 50 && (
+                          <button 
+                            onClick={() => setDescModalProject(project)} 
+                            className="text-[#005691] ml-1 font-semibold text-[11px] hover:underline"
+                          >
+                            View More
+                          </button>
                         )}
                       </p>
                       <p className="text-xs text-gray-500 mb-4"><span className="font-semibold text-gray-700">Advisor:</span> {project.advisor}</p>
