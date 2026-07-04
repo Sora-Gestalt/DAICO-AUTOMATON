@@ -66,12 +66,21 @@ export default function Home() {
     setSuccess(false);
     setIsSubmitting(true);
 
-    const ksuEmailRegex = /^[a-zA-Z0-9._%+-]+@student\.ksu\.edu\.sa$/;
+    const ksuEmailRegex = /^4\d{8}@student\.ksu\.edu\.sa$/;
     if (!ksuEmailRegex.test(formData.leader_email.trim())) {
       setError('Only official KSU student emails (@student.ksu.edu.sa) are permitted.');
       setIsSubmitting(false);
       return;
     }
+
+
+    const ksaPhoneRegex = /^05\d{8}$/;
+    if (!ksaPhoneRegex.test(formData.leader_phone.trim())) {
+      setError('Please provide a valid Saudi mobile number starting with 05 (e.g., 05xxxxxxxx).');
+      setIsSubmitting(false);
+      return;
+    }
+
 
     try {
       const response = await fetch('/api/projects', {
@@ -224,7 +233,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
              {/* 🔄 CHANGED: Replaced hardcoded string with imported ksuLogo object */}
-             <Image src={ksuLogo} alt="KSU Logo" width={46} height={46} className='bg-white p-1 rounded-full shadow-sm object-contain' />
+             <Image src={ksuLogo} alt="KSU Logo" width={100} height={100} className='bg-white p-1 rounded-full shadow-sm object-contain' />
              <h1 className="text-xl font-bold text-white tracking-tight">CCIS Graduation Project Marketplace</h1>
           </div>
           <span className="text-white/90 text-sm font-medium tracking-wide bg-white/10 px-3 py-1 rounded-full">KSU Internal Portal</span>
